@@ -23,7 +23,7 @@ df['patient_id'] = df['Name'].apply(lambda x: x.split('_')[1])  # Extract patien
 df['split'] = df['patient_id'].apply(lambda x: 'val' if x in val_patients_id else 'train') # Assign split based on patient_id
 
 
-# calculate statistics for normalization bsed on teh images with split='train'
+# calculate statistics for normalization based on the images with split='train'
 bf_mean, bf_std, fl_mean, fl_std = calculate_mean_std(df, bf_root=bf_root, fl_root=fl_root)
 
 # define transforms for BF and FL images (we might want to use different transforms for each type of image)
