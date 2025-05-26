@@ -18,26 +18,39 @@ def calculate_mean_std(df, bf_root='/content/data/BF/train', fl_root='/content/d
     -------
         bf_mean, bf_std, fl_mean, fl_std : lists of channel-wise means and stds
     """
-    df_train = df[df['split'] == 'train'].reset_index(drop=True)
-    bf_images = []
-    fl_images = []
 
-    for name in df_train['Name']:
-        bf_path = os.path.join(bf_root, name)
-        fl_path = os.path.join(fl_root, name)
-
-        bf_img = Image.open(bf_path).convert('RGB')
-        fl_img = Image.open(fl_path).convert('RGB')
-        bf_images.append(T.ToTensor()(bf_img))
-        fl_images.append(T.ToTensor()(fl_img))
+    # filter for training set
+    df_train = df[df['split']=='train']['Name']
     
-    bf_images = torch.stack(bf_images) # shape (N, C, H, W)
-    fl_images = torch.stack(fl_images)
+    # accumulators for BF and FL
+    bf_sum = torch.zeros(3)
+    bf_sum_sq = torch.zeros(3)
+    fl_sum = torch.zeros(3)
+    fl_sum_sq = torch.zeros(3)
+    n_pixels = 0
 
-    # Calculate mean and std for each channel
-    bf_mean = bf_images.mean(dim=[0, 2, 3])
-    bf_std = bf_images.std(dim=[0, 2, 3])
-    fl_mean = fl_images.mean(dim=[0, 2, 3])
-    fl_std = fl_images.std(dim=[0, 2, 3])
+    for name in df_train:
+        # load and convert to tensor (C,H,W) with ToTensor() → [0,1]
+        bf = T.ToTensor()(Image.open(os.path.join(bf_root, name)).convert('RGB'))
+        fl = T.ToTensor()(Image.open(os.path.join(fl_root, name)).convert('RGB'))
+
+        C, H, W = bf.shape
+        pixels = H * W
+        n_pixels += pixels
+
+        # sum over H and W → shape (C,)
+        bf_sum += bf.sum(dim=[1,2])
+        bf_sum_sq += (bf * bf).sum(dim=[1,2])
+        fl_sum += fl.sum(dim=[1,2])
+        fl_sum_sq += (fl * fl).sum(dim=[1,2])
+
+    # compute mean and std
+    bf_mean = bf_sum / n_pixels
+    bf_var = bf_sum_sq / n_pixels - bf_mean**2
+    bf_std = torch.sqrt(bf_var)
+
+    fl_mean = fl_sum / n_pixels
+    fl_var = fl_sum_sq / n_pixels - fl_mean**2
+    fl_std = torch.sqrt(fl_var)
 
     return bf_mean.tolist(), bf_std.tolist(), fl_mean.tolist(), fl_std.tolist()
