@@ -21,7 +21,7 @@ def calculate_mean_std(df, bf_root='/content/data/BF/train', fl_root='/content/d
 
     # filter for training set
     df_train = df[df['split']=='train']['Name']
-    
+
     # accumulators for BF and FL
     bf_sum = torch.zeros(3)
     bf_sum_sq = torch.zeros(3)
@@ -30,7 +30,7 @@ def calculate_mean_std(df, bf_root='/content/data/BF/train', fl_root='/content/d
     n_pixels = 0
 
     for name in df_train:
-        # load and convert to tensor (C,H,W) with ToTensor() → [0,1]
+        # convert images to tensors (C, H, W)
         bf = T.ToTensor()(Image.open(os.path.join(bf_root, name)).convert('RGB'))
         fl = T.ToTensor()(Image.open(os.path.join(fl_root, name)).convert('RGB'))
 
