@@ -26,22 +26,41 @@ df['split'] = df['patient_id'].apply(lambda x: 'val' if x in val_patients_id els
 # calculate statistics for normalization based on the images with split='train'
 bf_mean, bf_std, fl_mean, fl_std = calculate_mean_std(df, bf_root=bf_root, fl_root=fl_root)
 
-# define transforms for BF and FL images (we might want to use different transforms for each type of image)
-# Add more transformations, such as data augmentation
+# same transforms (except data mixup) as in Lian et al., "Let it shine: Autofluorescence
+# of Papanicolaou-stain improves AI-based cytological oral cancer detection"
 bf_transform = T.Compose([
-    T.Resize((224, 224)),
+    # pick exactly one of the three with the given probabilities
+    T.RandomChoice(
+        transforms=[
+            T.RandomPosterize(bits=3),
+            T.GaussianBlur(kernel_size=5, sigma=1.5),
+            T.RandomSolarize(threshold=100),
+        ],
+        p=[0.4, 0.2, 0.4]
+    ),
+    T.ColorJitter(brightness=0.5, contrast=0.2, saturation=0.2, hue=0.2),
     T.ToTensor(),
-    T.Normalize(mean=bf_mean, std=bf_std)
 ])
-
 fl_transform = T.Compose([
-    T.Resize((224, 224)),
+    T.ColorJitter(brightness=0.8, contrast=0.8),
+    T.GaussianBlur(kernel_size=5, sigma=(0.3, 3.2)),
     T.ToTensor(),
-    T.Normalize(mean=fl_mean, std=fl_std)
+])
+joint_transform = T.Compose([
+    T.Resize((224,224)),
+    T.RandomHorizontalFlip(p=0.5),
+    T.RandomVerticalFlip(p=0.5),
+    T.Normalize(mean=bf_mean+fl_mean, std=bf_std+fl_std),
 ])
 
 # create datasets for training and validation
-train_dataset = EarlyFusionDataset(df, split='train', bf_root=bf_root, fl_root=fl_root,
-                                   bf_transform=bf_transform, fl_transform=fl_transform)
-val_dataset = EarlyFusionDataset(df, split='val', bf_root=bf_root, fl_root=fl_root,
-                                  bf_transform=bf_transform, fl_transform=fl_transform)
+train_dataset = EarlyFusionDataset(
+    df, split='train', bf_root=bf_root, fl_root=fl_root,
+    transforms_bf=bf_transform, transforms_fl=fl_transform, transforms_joint=joint_transform
+)
+# only resize and normalize val data
+val_dataset = EarlyFusionDataset(
+    df, split='val', bf_root=bf_root, fl_root=fl_root,
+    transforms_bf=T.Compose([T.ToTensor()]), transforms_fl=T.Compose([T.ToTensor()]), 
+    transforms_joint=T.Compose([T.Resize(224), T.Normalize(mean=bf_mean+fl_mean, std=bf_std+fl_std)])
+)
