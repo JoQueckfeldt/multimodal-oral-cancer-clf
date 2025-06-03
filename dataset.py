@@ -58,5 +58,33 @@ class EarlyFusionDataset(Dataset):
         
         return x, label
 
+class BF3ChannelDataset(Dataset):
+    def __init__(self, df, bf_root, transform=None):
+        """
+        df: DataFrame with columns ['Name','Diagnosis','patient_id','split']
+        bf_root: directory containing BF RGB images (e.g. 3 channels)
+        transform: torchvision transforms to apply (e.g. augment+normalize)
+        """
+        self.df = df.reset_index(drop=True)
+        self.bf_root = bf_root
+        self.transform = transform
+        self.to_tensor = T.ToTensor()
+
+    def __len__(self):
+        return len(self.df)
+
+    def __getitem__(self, idx):
+        row = self.df.iloc[idx]
+        name = row['Name']
+        label = torch.tensor(row['Diagnosis'], dtype=torch.float32)
+
+        img_path = os.path.join(self.bf_root, name)
+        img = Image.open(img_path).convert('RGB')  # BF stored as RGB
+
+        if self.transform:
+            img = self.transform(img)
+
+        return img, label
+
 
 
